@@ -4,29 +4,28 @@ import java.lang.Math;
 public class ProblemaP2Final {
 
     private int n; // Número de nodos
-    private Map<Integer, Map<Integer, Integer>> originalGrafo; // Grafo original 
-    private Map<Integer, Map<Integer, Integer>> grafo; // Grafo sobre el cual se corren las simulaciones
-    private List<Integer> calculadoras; // Lista de celulas calculadoras
+    private Map<Integer, Map<Integer, Integer>> originalGrafo;
+    private Map<Integer, Map<Integer, Integer>> grafo;
+    private List<Integer> calculadoras;
 
-    // Mapeo de IDs de células a índices de nodos (Para acceder mas facil)
+    // Mapeo de IDs de células a índices de nodos
     private Map<Integer, Integer> idToNodeIndex;
     private Map<Integer, Integer> nodeIndexToId;
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
-        ProblemaP2 problema = new ProblemaP2();
+        ProblemaP2Final problema = new ProblemaP2Final();
 
         int casos = sc.nextInt();
-        sc.nextLine(); // salto de línea
+        sc.nextLine(); // Consumir el salto de línea
 
-        // Guardamos en una lista todos los casos de prueba
         List<CasoDePrueba> listaDeCasos = new ArrayList<>();
 
         for (int c = 0; c < casos; c++) {
             // Leer n y d
             int n = sc.nextInt();
             double d = sc.nextDouble();
-            sc.nextLine(); // salto de línea
+            sc.nextLine(); // Consumir el salto de línea
 
             // Leer y almacenar la información de las células
             List<Celula> celulas = new ArrayList<>();
@@ -69,8 +68,8 @@ public class ProblemaP2Final {
 
     // Clase para representar un caso de prueba
     static class CasoDePrueba {
-        List<Celula> celulas; // Lista de células
-        double d; // Distancia máxima de comunicación
+        List<Celula> celulas;
+        double d;
 
         public CasoDePrueba(List<Celula> celulas, double d) {
             this.celulas = celulas;
@@ -80,14 +79,13 @@ public class ProblemaP2Final {
 
     // Clase Celula
     static class Celula {
-        int id; // Identificador
-        double x, y; // Coordenadas
+        int id;
+        double x, y;
         int tipo; // 1: Iniciadora, 2: Calculadora, 3: Ejecutora
         Set<String> peptidos;
-        int nodeInIndex; // Índice del nodo de entrada
-        int nodeOutIndex; // Índice del nodo de salida
+        int nodeInIndex;
+        int nodeOutIndex;
 
-        // Constructor
         public Celula(int id, double x, double y, int tipo, Set<String> peptidos) {
             this.id = id;
             this.x = x;
@@ -99,12 +97,12 @@ public class ProblemaP2Final {
         }
     }
 
-    // Método para verificar si pueden comunicarse, retorna true si pueden, false en caso contrario
+    // Método para verificar si pueden comunicarse
     static boolean puedenComunicarse(int tipoOrigen, int tipoDestino) {
-        if (tipoOrigen == 1 && tipoDestino == 2) { // Iniciadora -> Calculadora
+        if (tipoOrigen == 1 && tipoDestino == 2) {
             return true;
         }
-        if (tipoOrigen == 2 && (tipoDestino == 2 || tipoDestino == 3)) { // Calculadora -> Calculadora o Ejecutora
+        if (tipoOrigen == 2 && (tipoDestino == 2 || tipoDestino == 3)) {
             return true;
         }
         return false;
@@ -123,11 +121,11 @@ public class ProblemaP2Final {
         for (Celula celula : celulas) {
             if (celula.tipo == 2) {
                 // Células calculadoras se dividen en dos nodos
-                celula.nodeInIndex = nodeIndex++; 
+                celula.nodeInIndex = nodeIndex++;
                 celula.nodeOutIndex = nodeIndex++;
             } else {
                 // Otros tipos de células utilizan un solo nodo
-                celula.nodeInIndex = nodeIndex++; 
+                celula.nodeInIndex = nodeIndex++;
                 celula.nodeOutIndex = celula.nodeInIndex;
             }
             idToNodeIndex.put(celula.id, celula.nodeInIndex); // Mapear ID al nodo de entrada
@@ -135,7 +133,7 @@ public class ProblemaP2Final {
         }
 
         n = nodeIndex; // Actualizamos n al número total de nodos
-        originalGrafo = new HashMap<>(); 
+        originalGrafo = new HashMap<>();
         calculadoras = new ArrayList<>();
 
         // Crear lista de adyacencia vacía
@@ -155,54 +153,34 @@ public class ProblemaP2Final {
             }
         }
 
-        // Construcción de la cuadrícula
-        double tamañoCelda = d;
-        Map<Long, List<Celula>> grid = new HashMap<>();
-
-        for (Celula celula : celulas) {
-            long gridX = (long) (celula.x / tamañoCelda);
-            long gridY = (long) (celula.y / tamañoCelda);
-            long key = (gridX << 32) + gridY;
-            grid.computeIfAbsent(key, k -> new ArrayList<>()).add(celula);
-        }
-
         // Crear las aristas dirigidas según las reglas de comunicación
-        for (Celula origen : celulas) {
-            long gridX = (long) (origen.x / tamañoCelda);
-            long gridY = (long) (origen.y / tamañoCelda);
-
+        for (int i = 0; i < celulas.size(); i++) {
+            Celula origen = celulas.get(i);
             int origenOutIndex = origen.nodeOutIndex;
 
-            for (long dx = -1; dx <= 1; dx++) {
-                for (long dy = -1; dy <= 1; dy++) {
-                    long vecinoX = gridX + dx;
-                    long vecinoY = gridY + dy;
-                    long keyVecino = (vecinoX << 32) + vecinoY;
+            for (int j = 0; j < celulas.size(); j++) {
+                if (i == j) continue; // No considerar la misma célula
+                Celula destino = celulas.get(j);
 
-                    if (grid.containsKey(keyVecino)) {
-                        for (Celula destino : grid.get(keyVecino)) {
-                            if (origen.id == destino.id) continue;
+                // Verificar si pueden comunicarse según las reglas
+                if (!puedenComunicarse(origen.tipo, destino.tipo)) {
+                    continue;
+                }
 
-                            // Verificar si pueden comunicarse según las reglas
-                            if (!puedenComunicarse(origen.tipo, destino.tipo)) {
-                                continue;
-                            }
+                // Calcular la distancia euclidiana
+                double distancia = Math.hypot(origen.x - destino.x, origen.y - destino.y);
 
-                            double distancia = Math.hypot(origen.x - destino.x, origen.y - destino.y);
+                if (distancia <= d) {
+                    // Calcular la capacidad (número de péptidos compartidos)
+                    Set<String> peptidosCompartidos = new HashSet<>(origen.peptidos);
+                    peptidosCompartidos.retainAll(destino.peptidos);
+                    int capacidad = peptidosCompartidos.size();
 
-                            if (distancia <= d) {
-                                Set<String> peptidosCompartidos = new HashSet<>(origen.peptidos);
-                                peptidosCompartidos.retainAll(destino.peptidos);
-                                int capacidad = peptidosCompartidos.size();
+                    if (capacidad > 0) {
+                        int destinoInIndex = destino.nodeInIndex;
 
-                                if (capacidad > 0) {
-                                    int destinoInIndex = destino.nodeInIndex;
-
-                                    // Agregar arista dirigida desde origenOutIndex a destinoInIndex
-                                    originalGrafo.get(origenOutIndex).put(destinoInIndex, capacidad);
-                                }
-                            }
-                        }
+                        // Agregar arista dirigida desde origenOutIndex a destinoInIndex
+                        originalGrafo.get(origenOutIndex).put(destinoInIndex, capacidad);
                     }
                 }
             }
@@ -297,7 +275,7 @@ public class ProblemaP2Final {
 
     public void blockNode(int nodeInIndex) {
         // Bloquear la arista entre nodeInIndex y nodeOutIndex
-        this.grafo.get(nodeInIndex).put(nodeInIndex + 1, 0); 
+        this.grafo.get(nodeInIndex).put(nodeInIndex + 1, 0);
     }
 
     public void resetGrafo() {
