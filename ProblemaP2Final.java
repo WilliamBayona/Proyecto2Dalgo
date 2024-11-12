@@ -14,7 +14,7 @@ public class ProblemaP2Final {
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
-        ProblemaP2 problema = new ProblemaP2();
+        ProblemaP2Final problema = new ProblemaP2Final();
 
         int casos = sc.nextInt();
         sc.nextLine(); // salto de línea
