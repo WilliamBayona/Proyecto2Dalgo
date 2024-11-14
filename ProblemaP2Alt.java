@@ -263,72 +263,7 @@ public class ProblemaP2Alt {
         return false;
     }
 
-    public int edmondsKarp(int source, int sink) {
-        int[] parent = new int[this.n];
-        int maxFlow = 0;
-
-        while (this.bfs(source, sink, parent)) {
-            int pathFlow = Integer.MAX_VALUE;
-            for (int v = sink; v != source; v = parent[v]) {
-                int u = parent[v];
-                pathFlow = Math.min(pathFlow, this.grafo.get(u).get(v));
-            }
-
-            for (int v = sink; v != source; v = parent[v]) {
-                int u = parent[v];
-                // Actualizar el flujo residual
-                this.grafo.get(u).put(v, this.grafo.get(u).get(v) - pathFlow);
-                this.grafo.get(v).put(u, this.grafo.get(v).getOrDefault(u, 0) + pathFlow);
-            }
-
-            maxFlow += pathFlow;
-        }
-
-        return maxFlow;
-    }
-
-    public void resetGrafo() {
-        this.grafo = new HashMap<>();
-        for (Map.Entry<Integer, Map<Integer, Integer>> entry : originalGrafo.entrySet()) {
-            this.grafo.put(entry.getKey(), new HashMap<>(entry.getValue()));
-        }
-    }
-
-    public int[] findBestNodeToBlock(int source, int sink) {
-        resetGrafo();
-        Map<Integer, Integer> flowThroughCalculatorEdges = new HashMap<>();
-        int originalMaxFlow = this.edmondsKarpWithFlowTracking(source, sink, flowThroughCalculatorEdges);
-
-        int maxFlowReduction = 0;
-        int bestNodeInIndex = -1;
-
-        for (int nodeInIndex : calculadoras) {
-            int flowThroughNode = flowThroughCalculatorEdges.getOrDefault(nodeInIndex, 0);
-            if (flowThroughNode > maxFlowReduction) {
-                maxFlowReduction = flowThroughNode;
-                bestNodeInIndex = nodeInIndex;
-            } else if (flowThroughNode == maxFlowReduction && flowThroughNode > 0) {
-                int currentBestNodeId = nodeIndexToId.get(bestNodeInIndex);
-                int newNodeId = nodeIndexToId.get(nodeInIndex);
-                if (newNodeId > currentBestNodeId) {
-                    bestNodeInIndex = nodeInIndex;
-                }
-            }
-        }
-
-        // Manejar el caso en que no se encontró una célula para bloquear
-        if (bestNodeInIndex == -1) {
-            // Retornar el flujo original sin reducción y un ID indicador, por ejemplo, -1
-            return new int[]{-1, originalMaxFlow, originalMaxFlow};
-        }
-
-        int minimoFlujo = originalMaxFlow - maxFlowReduction;
-        int bestNodeId = nodeIndexToId.get(bestNodeInIndex);
-
-        return new int[]{bestNodeId, originalMaxFlow, minimoFlujo};
-    }
-
-    public int edmondsKarpWithFlowTracking(int source, int sink, Map<Integer, Integer> flowThroughCalculatorEdges) {
+    public int edmondsKarp(int source, int sink, Map<Integer, Integer> flowThroughCalculatorEdges) {
         int[] parent = new int[this.n];
         int maxFlow = 0;
 
@@ -362,5 +297,57 @@ public class ProblemaP2Alt {
         }
 
         return maxFlow;
+    }
+
+    public int edmondsKarp(int source, int sink) {
+        // Sobrecarga del método para llamadas sin seguimiento de flujo
+        return edmondsKarp(source, sink, new HashMap<>());
+    }
+
+    public void resetGrafo() {
+        this.grafo = new HashMap<>();
+        for (Map.Entry<Integer, Map<Integer, Integer>> entry : originalGrafo.entrySet()) {
+            this.grafo.put(entry.getKey(), new HashMap<>(entry.getValue()));
+        }
+    }
+
+    public int[] findBestNodeToBlock(int source, int sink) {
+        resetGrafo();
+        Map<Integer, Integer> flowThroughCalculatorEdges = new HashMap<>();
+        int originalMaxFlow = this.edmondsKarp(source, sink, flowThroughCalculatorEdges);
+
+        int maxFlowReduction = 0;
+        int bestNodeInIndex = -1;
+
+        for (int nodeInIndex : calculadoras) {
+            int flowThroughNode = flowThroughCalculatorEdges.getOrDefault(nodeInIndex, 0);
+            if (flowThroughNode > maxFlowReduction) {
+                maxFlowReduction = flowThroughNode;
+                bestNodeInIndex = nodeInIndex;
+            } else if (flowThroughNode == maxFlowReduction && flowThroughNode > 0) {
+                int currentBestNodeId = nodeIndexToId.get(bestNodeInIndex);
+                int newNodeId = nodeIndexToId.get(nodeInIndex);
+                if (newNodeId > currentBestNodeId) {
+                    bestNodeInIndex = nodeInIndex;
+                }
+            }
+        }
+
+        // Manejar el caso en que no se encontró una célula para bloquear
+        if (bestNodeInIndex == -1 || maxFlowReduction == 0) {
+            // Retornar el flujo original sin reducción y un ID indicador, por ejemplo, -1
+            return new int[]{-1, originalMaxFlow, originalMaxFlow};
+        }
+
+        // Bloquear la célula seleccionada (eliminar su arista interna)
+        resetGrafo();
+        this.grafo.get(bestNodeInIndex).remove(bestNodeInIndex + 1);
+
+        // Recalcular el flujo máximo sin la célula bloqueada
+        int newMaxFlow = this.edmondsKarp(source, sink);
+
+        int bestNodeId = nodeIndexToId.get(bestNodeInIndex);
+
+        return new int[]{bestNodeId, originalMaxFlow, newMaxFlow};
     }
 }
