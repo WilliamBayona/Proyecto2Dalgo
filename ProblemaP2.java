@@ -8,6 +8,10 @@ public class ProblemaP2 {
     private Map<Integer, Map<Integer, Integer>> grafo;
     private List<Integer> calculadoras;
 
+    // Variables configurables para los porcentajes
+    private double porcentajeMayorFlujo;
+    private double porcentajeFlujoCercanoCapacidad;
+
     // Mapeo de IDs de células a índices de nodos
     private Map<Integer, Integer> idToNodeIndex;
     private Map<Integer, Integer> nodeIndexToId;
@@ -16,7 +20,6 @@ public class ProblemaP2 {
         Scanner sc = new Scanner(System.in);
         ProblemaP2 problema = new ProblemaP2();
 
-        System.out.println("Inicio del programa...");
         long tiempoInicioTotal = System.nanoTime(); // Tiempo inicial en nanosegundos para todo el programa
 
         int casos = sc.nextInt();
@@ -52,7 +55,7 @@ public class ProblemaP2 {
             }
 
             // Crear un objeto CasoDePrueba y agregarlo a la lista
-            CasoDePrueba caso = new CasoDePrueba(celulas, d);
+            CasoDePrueba caso = new CasoDePrueba(celulas, d, n);
             listaDeCasos.add(caso);
         }
 
@@ -64,13 +67,11 @@ public class ProblemaP2 {
             int[] resultado = problema.resolverCaso(caso);
             long tiempoFinCaso = System.nanoTime(); // Tiempo final por caso
 
-            System.out.printf("Caso %d procesado en %.3f ms%n", casoNumero, (tiempoFinCaso - tiempoInicioCaso) / 1e6);
             resultados.add(resultado);
             casoNumero++;
         }
 
         // Imprimir todos los resultados
-        System.out.println("Resultados:");
         for (int[] resultado : resultados) {
             System.out.println(resultado[0] + " " + resultado[1] + " " + resultado[2]);
         }
@@ -83,10 +84,12 @@ public class ProblemaP2 {
     static class CasoDePrueba {
         List<Celula> celulas;
         double d;
+        int n;
 
-        public CasoDePrueba(List<Celula> celulas, double d) {
+        public CasoDePrueba(List<Celula> celulas, double d, int n) {
             this.celulas = celulas;
             this.d = d;
+            this.n = n;
         }
     }
 
@@ -110,21 +113,12 @@ public class ProblemaP2 {
         }
     }
 
-    // Método para verificar si pueden comunicarse
-    static boolean puedenComunicarse(int tipoOrigen, int tipoDestino) {
-        if (tipoOrigen == 1 && tipoDestino == 2) {
-            return true;
-        }
-        if (tipoOrigen == 2 && (tipoDestino == 2 || tipoDestino == 3)) {
-            return true;
-        }
-        return false;
-    }
-
-    // Método para resolver cada caso de prueba
     public int[] resolverCaso(CasoDePrueba caso) {
         List<Celula> celulas = caso.celulas;
         double d = caso.d;
+
+        // Calcular los porcentajes dinámicamente
+        calcularPorcentajesDinamicos(caso.n);
 
         // Mapear IDs de células a índices de nodos
         idToNodeIndex = new HashMap<>();
@@ -133,105 +127,93 @@ public class ProblemaP2 {
 
         for (Celula celula : celulas) {
             if (celula.tipo == 2) {
-                // Células calculadoras se dividen en dos nodos
                 celula.nodeInIndex = nodeIndex++;
                 celula.nodeOutIndex = nodeIndex++;
             } else {
-                // Otros tipos de células utilizan un solo nodo
                 celula.nodeInIndex = nodeIndex++;
                 celula.nodeOutIndex = celula.nodeInIndex;
             }
-            idToNodeIndex.put(celula.id, celula.nodeInIndex); // Mapear ID al nodo de entrada
+            idToNodeIndex.put(celula.id, celula.nodeInIndex);
             nodeIndexToId.put(celula.nodeInIndex, celula.id);
         }
 
-        n = nodeIndex; // Actualizamos n al número total de nodos
+        n = nodeIndex;
         originalGrafo = new HashMap<>();
         calculadoras = new ArrayList<>();
 
-        // Crear lista de adyacencia vacía
         for (int i = 0; i < n; i++) {
             originalGrafo.put(i, new HashMap<>());
         }
 
-        // Conectar nodos de entrada y salida para células calculadoras
-        int maxCapacity = 1_000_000; // Usar un valor finito grande
+        int maxCapacity = 1_000_000;
 
         for (Celula celula : celulas) {
             if (celula.tipo == 2) {
-                // Conectar nodo de entrada con nodo de salida
                 originalGrafo.get(celula.nodeInIndex).put(celula.nodeOutIndex, maxCapacity);
-                // Añadir la célula calculadora a la lista para el bloqueo
                 calculadoras.add(celula.nodeInIndex);
             }
         }
 
-        // Comparar todas las parejas de células para crear las aristas
-        int numCelulas = celulas.size();
-        for (int i = 0; i < numCelulas; i++) {
-            Celula origen = celulas.get(i);
+        for (Celula origen : celulas) {
             int origenOutIndex = origen.nodeOutIndex;
-
-            for (int j = 0; j < numCelulas; j++) {
-                if (i == j) continue;
-                Celula destino = celulas.get(j);
-
-                // Verificar si pueden comunicarse según las reglas
-                if (!puedenComunicarse(origen.tipo, destino.tipo)) {
-                    continue;
-                }
+            for (Celula destino : celulas) {
+                if (origen == destino || !puedenComunicarse(origen.tipo, destino.tipo)) continue;
 
                 double distancia = Math.hypot(origen.x - destino.x, origen.y - destino.y);
 
-                if (distancia <= d + 1e-8) { // Añadimos una pequeña tolerancia
+                if (distancia <= d + 1e-8) {
                     Set<String> peptidosCompartidos = new HashSet<>(origen.peptidos);
                     peptidosCompartidos.retainAll(destino.peptidos);
                     int capacidad = peptidosCompartidos.size();
 
                     if (capacidad > 0) {
                         int destinoInIndex = destino.nodeInIndex;
-
-                        // Agregar arista dirigida desde origenOutIndex a destinoInIndex
-                        Map<Integer, Integer> vecinos = originalGrafo.get(origenOutIndex);
-                        vecinos.put(destinoInIndex, vecinos.getOrDefault(destinoInIndex, 0) + capacidad);
+                        originalGrafo.get(origenOutIndex).put(destinoInIndex, capacidad);
                     }
                 }
             }
         }
 
-        // Identificar el super source y super sink
         int superSource = n;
         int superSink = n + 1;
-        n = n + 2; // Actualizar el número total de nodos
+        n = n + 2;
 
-        // Añadir los nuevos nodos al grafo
         originalGrafo.put(superSource, new HashMap<>());
         originalGrafo.put(superSink, new HashMap<>());
 
-        // Conectar el super source a todas las células iniciadoras
         for (Celula celula : celulas) {
             if (celula.tipo == 1) {
-                int celulaIndex = celula.nodeInIndex;
-                originalGrafo.get(superSource).put(celulaIndex, maxCapacity);
+                originalGrafo.get(superSource).put(celula.nodeInIndex, maxCapacity);
+            } else if (celula.tipo == 3) {
+                originalGrafo.get(celula.nodeInIndex).put(superSink, maxCapacity);
             }
         }
 
-        // Conectar todas las células ejecutoras al super sink
-        for (Celula celula : celulas) {
-            if (celula.tipo == 3) {
-                int celulaIndex = celula.nodeInIndex;
-                originalGrafo.get(celulaIndex).put(superSink, maxCapacity);
-            }
-        }
-
-        // Clonar el grafo original para usarlo en los cálculos
         resetGrafo();
+        return findBestNodeToBlock(superSource, superSink);
+    }
 
-        // Llamar a la función para encontrar el mejor nodo a bloquear
-        int[] resultado = findBestNodeToBlock(superSource, superSink);
+    public int edmondsKarp(int source, int sink) {
+        int[] parent = new int[this.n];
+        int maxFlow = 0;
 
-        // Devolver el resultado
-        return resultado;
+        while (this.bfs(source, sink, parent)) {
+            int pathFlow = Integer.MAX_VALUE;
+            for (int v = sink; v != source; v = parent[v]) {
+                int u = parent[v];
+                pathFlow = Math.min(pathFlow, this.grafo.get(u).get(v));
+            }
+
+            for (int v = sink; v != source; v = parent[v]) {
+                int u = parent[v];
+                this.grafo.get(u).put(v, this.grafo.get(u).get(v) - pathFlow);
+                this.grafo.get(v).put(u, this.grafo.get(v).getOrDefault(u, 0) + pathFlow);
+            }
+
+            maxFlow += pathFlow;
+        }
+
+        return maxFlow;
     }
 
     private boolean bfs(int source, int sink, int[] parent) {
@@ -252,37 +234,12 @@ public class ProblemaP2 {
                     parent[v] = u;
                     visited[v] = true;
                     queue.add(v);
-                    if (v == sink) {
-                        return true;
-                    }
+                    if (v == sink) return true;
                 }
             }
         }
+
         return false;
-    }
-
-    public int edmondsKarp(int source, int sink) {
-        int[] parent = new int[this.n];
-        int maxFlow = 0;
-
-        while (this.bfs(source, sink, parent)) {
-            int pathFlow = Integer.MAX_VALUE;
-            for (int v = sink; v != source; v = parent[v]) {
-                int u = parent[v];
-                pathFlow = Math.min(pathFlow, this.grafo.get(u).get(v));
-            }
-
-            for (int v = sink; v != source; v = parent[v]) {
-                int u = parent[v];
-                // Actualizar el flujo residual
-                this.grafo.get(u).put(v, this.grafo.get(u).get(v) - pathFlow);
-                this.grafo.get(v).put(u, this.grafo.get(v).getOrDefault(u, 0) + pathFlow);
-            }
-
-            maxFlow += pathFlow;
-        }
-
-        return maxFlow;
     }
 
     public void resetGrafo() {
@@ -296,19 +253,22 @@ public class ProblemaP2 {
         resetGrafo();
         int originalMaxFlow = edmondsKarp(source, sink);
 
+        List<Integer> NodosCandidatos = findCandidateNodes();
+
+        if (NodosCandidatos.isEmpty()) {
+            return new int[]{-1, originalMaxFlow, originalMaxFlow};
+        }
+
         int maxFlowReduction = 0;
         int bestNodeInIndex = -1;
         int minimoFlujo = originalMaxFlow;
 
-        for (int nodeInIndex : calculadoras) {
-            resetGrafo(); // Restaurar el grafo original antes de cada iteración
+        for (int nodeInIndex : NodosCandidatos) {
+            resetGrafo();
+            int nodeOutIndex = nodeInIndex + 1;
 
-            int nodeOutIndex = nodeInIndex + 1; // Nodo de salida de la célula calculadora
-
-            // Bloquear la arista interna de la célula calculadora
             grafo.get(nodeInIndex).put(nodeOutIndex, 0);
 
-            // Recalcular el flujo máximo con la arista bloqueada
             int newMaxFlow = edmondsKarp(source, sink);
 
             int flowReduction = originalMaxFlow - newMaxFlow;
@@ -317,13 +277,6 @@ public class ProblemaP2 {
                 maxFlowReduction = flowReduction;
                 bestNodeInIndex = nodeInIndex;
                 minimoFlujo = newMaxFlow;
-            } else if (flowReduction == maxFlowReduction && flowReduction > 0) {
-                int currentBestNodeId = nodeIndexToId.get(bestNodeInIndex);
-                int newNodeId = nodeIndexToId.get(nodeInIndex);
-                if (newNodeId > currentBestNodeId) {
-                    bestNodeInIndex = nodeInIndex;
-                    minimoFlujo = newMaxFlow;
-                }
             }
         }
 
@@ -332,7 +285,61 @@ public class ProblemaP2 {
         }
 
         int bestNodeId = nodeIndexToId.get(bestNodeInIndex);
-
         return new int[]{bestNodeId, originalMaxFlow, minimoFlujo};
+    }
+
+    private List<Integer> findCandidateNodes() {
+        Map<Integer, Integer> flowByNode = new HashMap<>();
+        Map<Integer, Integer> capacityByNode = new HashMap<>();
+
+        for (int nodeInIndex : calculadoras) {
+            int nodeOutIndex = nodeInIndex + 1;
+
+            int capacidadOriginal = originalGrafo.get(nodeInIndex).getOrDefault(nodeOutIndex, 0);
+            int capacidadResidual = grafo.get(nodeInIndex).getOrDefault(nodeOutIndex, 0);
+            int flujoEnviado = capacidadOriginal - capacidadResidual;
+
+            flowByNode.put(nodeInIndex, flujoEnviado);
+            capacityByNode.put(nodeInIndex, capacidadOriginal);
+        }
+
+        int cantidadMayorFlujo = Math.max(1, (int) (calculadoras.size() * porcentajeMayorFlujo));
+        int cantidadFlujoCercano = Math.max(1, (int) (calculadoras.size() * porcentajeFlujoCercanoCapacidad));
+
+        List<Integer> listaMayorFlujo = flowByNode.entrySet().stream()
+                .sorted((a, b) -> b.getValue() - a.getValue())
+                .limit(cantidadMayorFlujo)
+                .map(Map.Entry::getKey)
+                .toList();
+
+        List<Integer> listaFlujoCercanoCapacidad = flowByNode.entrySet().stream()
+                .sorted(Comparator.comparingDouble(entry ->
+                        Math.abs(entry.getValue() - capacityByNode.get(entry.getKey()))))
+                .limit(cantidadFlujoCercano)
+                .map(Map.Entry::getKey)
+                .toList();
+
+        Set<Integer> nodosCandidatosSet = new HashSet<>();
+        nodosCandidatosSet.addAll(listaMayorFlujo);
+        nodosCandidatosSet.addAll(listaFlujoCercanoCapacidad);
+
+        return new ArrayList<>(nodosCandidatosSet);
+    }
+
+    private void calcularPorcentajesDinamicos(int totalNodos) {
+        // Parámetros ajustados a los valores objetivo
+        double k = 1.0; // Escala inicial
+        double a = 0.005; // Tasa de decrecimiento
+        double c = 0.00000001; // Límite inferior
+    
+        // Calcular el porcentaje dinámico usando una función exponencial inversa
+        porcentajeMayorFlujo = porcentajeFlujoCercanoCapacidad = k * Math.exp(-a * totalNodos) + c;
+    
+    }
+    
+
+    static boolean puedenComunicarse(int tipoOrigen, int tipoDestino) {
+        if (tipoOrigen == 1 && tipoDestino == 2) return true;
+        return tipoOrigen == 2 && (tipoDestino == 2 || tipoDestino == 3);
     }
 }
