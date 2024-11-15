@@ -1,7 +1,7 @@
 import java.util.*;
 import java.lang.Math;
 
-public class ProblemaP2 {
+public class ProblemaP2Final {
 
     private int n; // Número de nodos
     private Map<Integer, Map<Integer, Integer>> originalGrafo;
@@ -18,9 +18,8 @@ public class ProblemaP2 {
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
-        ProblemaP2 problema = new ProblemaP2();
+        ProblemaP2Final problema = new ProblemaP2Final();
 
-        System.out.println("Inicio del programa...");
         long tiempoInicioTotal = System.nanoTime(); // Tiempo inicial en nanosegundos para todo el programa
 
         int casos = sc.nextInt();
@@ -68,13 +67,11 @@ public class ProblemaP2 {
             int[] resultado = problema.resolverCaso(caso);
             long tiempoFinCaso = System.nanoTime(); // Tiempo final por caso
 
-            System.out.printf("Caso %d procesado en %.3f ms%n", casoNumero, (tiempoFinCaso - tiempoInicioCaso) / 1e6);
             resultados.add(resultado);
             casoNumero++;
         }
 
         // Imprimir todos los resultados
-        System.out.println("Resultados:");
         for (int[] resultado : resultados) {
             System.out.println(resultado[0] + " " + resultado[1] + " " + resultado[2]);
         }
@@ -257,7 +254,6 @@ public class ProblemaP2 {
         int originalMaxFlow = edmondsKarp(source, sink);
 
         List<Integer> NodosCandidatos = findCandidateNodes();
-        System.out.println("Lista de nodos candidatos: " + NodosCandidatos);
 
         if (NodosCandidatos.isEmpty()) {
             return new int[]{-1, originalMaxFlow, originalMaxFlow};
@@ -333,15 +329,14 @@ public class ProblemaP2 {
     private void calcularPorcentajesDinamicos(int totalNodos) {
         // Parámetros ajustados a los valores objetivo
         double k = 1.0; // Escala inicial
-        double a = 0.005; // Tasa de decrecimiento
-        double c = 0.00000001; // Límite inferior
+        double a = 0.05; // Tasa de decrecimiento
+        double c = 0.0000000001; // Límite inferior
     
         // Calcular el porcentaje dinámico usando una función exponencial inversa
         porcentajeMayorFlujo = porcentajeFlujoCercanoCapacidad = k * Math.exp(-a * totalNodos) + c;
     
-        System.out.printf("Porcentajes dinámicos: Mayor Flujo=%.7f%%, Flujo Cercano a Capacidad=%.7f%%%n",
-                porcentajeMayorFlujo * 100, porcentajeFlujoCercanoCapacidad * 100);
     }
+    
     
 
     static boolean puedenComunicarse(int tipoOrigen, int tipoDestino) {
@@ -349,3 +344,4 @@ public class ProblemaP2 {
         return tipoOrigen == 2 && (tipoDestino == 2 || tipoDestino == 3);
     }
 }
+

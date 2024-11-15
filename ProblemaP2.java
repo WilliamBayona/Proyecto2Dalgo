@@ -8,10 +8,6 @@ public class ProblemaP2 {
     private Map<Integer, Map<Integer, Integer>> grafo;
     private List<Integer> calculadoras;
 
-    // Variables configurables para los porcentajes
-    private double porcentajeMayorFlujo;
-    private double porcentajeFlujoCercanoCapacidad;
-
     // Mapeo de IDs de células a índices de nodos
     private Map<Integer, Integer> idToNodeIndex;
     private Map<Integer, Integer> nodeIndexToId;
@@ -61,14 +57,9 @@ public class ProblemaP2 {
 
         // Procesar todos los casos de prueba y almacenar los resultados
         List<int[]> resultados = new ArrayList<>();
-        int casoNumero = 1;
         for (CasoDePrueba caso : listaDeCasos) {
-            long tiempoInicioCaso = System.nanoTime(); // Tiempo inicial por caso
             int[] resultado = problema.resolverCaso(caso);
-            long tiempoFinCaso = System.nanoTime(); // Tiempo final por caso
-
             resultados.add(resultado);
-            casoNumero++;
         }
 
         // Imprimir todos los resultados
@@ -116,9 +107,6 @@ public class ProblemaP2 {
     public int[] resolverCaso(CasoDePrueba caso) {
         List<Celula> celulas = caso.celulas;
         double d = caso.d;
-
-        // Calcular los porcentajes dinámicamente
-        calcularPorcentajesDinamicos(caso.n);
 
         // Mapear IDs de células a índices de nodos
         idToNodeIndex = new HashMap<>();
@@ -253,26 +241,39 @@ public class ProblemaP2 {
         resetGrafo();
         int originalMaxFlow = edmondsKarp(source, sink);
 
-        List<Integer> NodosCandidatos = findCandidateNodes();
-
-        if (NodosCandidatos.isEmpty()) {
-            return new int[]{-1, originalMaxFlow, originalMaxFlow};
+        Map<Integer, Integer> flowByNode = new HashMap<>();
+        for (int nodeInIndex : calculadoras) {
+            int nodeOutIndex = nodeInIndex + 1;
+            int capacidadOriginal = originalGrafo.get(nodeInIndex).getOrDefault(nodeOutIndex, 0);
+            int capacidadResidual = grafo.get(nodeInIndex).getOrDefault(nodeOutIndex, 0);
+            int flujoEnviado = capacidadOriginal - capacidadResidual;
+            flowByNode.put(nodeInIndex, flujoEnviado);
         }
+
+        List<Map.Entry<Integer, Integer>> sortedNodes = flowByNode.entrySet().stream()
+                .sorted((a, b) -> b.getValue() - a.getValue())
+                .toList();
 
         int maxFlowReduction = 0;
         int bestNodeInIndex = -1;
         int minimoFlujo = originalMaxFlow;
+        int previousMaxFlow = originalMaxFlow;
 
-        for (int nodeInIndex : NodosCandidatos) {
-            resetGrafo();
+        for (Map.Entry<Integer, Integer> entry : sortedNodes) {
+            int nodeInIndex = entry.getKey();
             int nodeOutIndex = nodeInIndex + 1;
 
+            resetGrafo();
             grafo.get(nodeInIndex).put(nodeOutIndex, 0);
 
             int newMaxFlow = edmondsKarp(source, sink);
+            if (newMaxFlow >= previousMaxFlow) {
+                break;
+            }
+
+            previousMaxFlow = newMaxFlow;
 
             int flowReduction = originalMaxFlow - newMaxFlow;
-
             if (flowReduction > maxFlowReduction) {
                 maxFlowReduction = flowReduction;
                 bestNodeInIndex = nodeInIndex;
@@ -287,56 +288,6 @@ public class ProblemaP2 {
         int bestNodeId = nodeIndexToId.get(bestNodeInIndex);
         return new int[]{bestNodeId, originalMaxFlow, minimoFlujo};
     }
-
-    private List<Integer> findCandidateNodes() {
-        Map<Integer, Integer> flowByNode = new HashMap<>();
-        Map<Integer, Integer> capacityByNode = new HashMap<>();
-
-        for (int nodeInIndex : calculadoras) {
-            int nodeOutIndex = nodeInIndex + 1;
-
-            int capacidadOriginal = originalGrafo.get(nodeInIndex).getOrDefault(nodeOutIndex, 0);
-            int capacidadResidual = grafo.get(nodeInIndex).getOrDefault(nodeOutIndex, 0);
-            int flujoEnviado = capacidadOriginal - capacidadResidual;
-
-            flowByNode.put(nodeInIndex, flujoEnviado);
-            capacityByNode.put(nodeInIndex, capacidadOriginal);
-        }
-
-        int cantidadMayorFlujo = Math.max(1, (int) (calculadoras.size() * porcentajeMayorFlujo));
-        int cantidadFlujoCercano = Math.max(1, (int) (calculadoras.size() * porcentajeFlujoCercanoCapacidad));
-
-        List<Integer> listaMayorFlujo = flowByNode.entrySet().stream()
-                .sorted((a, b) -> b.getValue() - a.getValue())
-                .limit(cantidadMayorFlujo)
-                .map(Map.Entry::getKey)
-                .toList();
-
-        List<Integer> listaFlujoCercanoCapacidad = flowByNode.entrySet().stream()
-                .sorted(Comparator.comparingDouble(entry ->
-                        Math.abs(entry.getValue() - capacityByNode.get(entry.getKey()))))
-                .limit(cantidadFlujoCercano)
-                .map(Map.Entry::getKey)
-                .toList();
-
-        Set<Integer> nodosCandidatosSet = new HashSet<>();
-        nodosCandidatosSet.addAll(listaMayorFlujo);
-        nodosCandidatosSet.addAll(listaFlujoCercanoCapacidad);
-
-        return new ArrayList<>(nodosCandidatosSet);
-    }
-
-    private void calcularPorcentajesDinamicos(int totalNodos) {
-        // Parámetros ajustados a los valores objetivo
-        double k = 1.0; // Escala inicial
-        double a = 0.005; // Tasa de decrecimiento
-        double c = 0.00000001; // Límite inferior
-    
-        // Calcular el porcentaje dinámico usando una función exponencial inversa
-        porcentajeMayorFlujo = porcentajeFlujoCercanoCapacidad = k * Math.exp(-a * totalNodos) + c;
-    
-    }
-    
 
     static boolean puedenComunicarse(int tipoOrigen, int tipoDestino) {
         if (tipoOrigen == 1 && tipoDestino == 2) return true;
