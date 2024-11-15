@@ -1,4 +1,3 @@
-//William Bayona y Daniela Echavarria
 import java.util.*;
 import java.lang.Math;
 
@@ -16,47 +15,47 @@ public class ProblemaP2Alt {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
         ProblemaP2Alt problema = new ProblemaP2Alt();
-    
+
         System.out.println("Inicio del programa...");
         long tiempoInicioTotal = System.nanoTime(); // Tiempo inicial en nanosegundos para todo el programa
-    
+
         int casos = sc.nextInt();
         sc.nextLine(); // Consumir el salto de línea
-    
+
         List<CasoDePrueba> listaDeCasos = new ArrayList<>();
-    
+
         for (int c = 0; c < casos; c++) {
             // Leer n y d
             int n = sc.nextInt();
             double d = sc.nextDouble();
             sc.nextLine(); // Consumir el salto de línea
-    
+
             // Leer y almacenar la información de las células
             List<Celula> celulas = new ArrayList<>();
-    
+
             for (int i = 0; i < n; i++) {
                 String linea = sc.nextLine();
                 String[] partes = linea.trim().split("\\s+");
-    
+
                 int id = Integer.parseInt(partes[0]);
                 double x = Double.parseDouble(partes[1]);
                 double y = Double.parseDouble(partes[2]);
                 int tipo = Integer.parseInt(partes[3]);
-    
+
                 Set<String> peptidos = new HashSet<>();
                 for (int j = 4; j < partes.length; j++) {
                     peptidos.add(partes[j]);
                 }
-    
+
                 Celula celula = new Celula(id, x, y, tipo, peptidos);
                 celulas.add(celula);
             }
-    
+
             // Crear un objeto CasoDePrueba y agregarlo a la lista
             CasoDePrueba caso = new CasoDePrueba(celulas, d);
             listaDeCasos.add(caso);
         }
-    
+
         // Procesar todos los casos de prueba y almacenar los resultados
         List<int[]> resultados = new ArrayList<>();
         int casoNumero = 1;
@@ -64,18 +63,18 @@ public class ProblemaP2Alt {
             long tiempoInicioCaso = System.nanoTime(); // Tiempo inicial por caso
             int[] resultado = problema.resolverCaso(caso);
             long tiempoFinCaso = System.nanoTime(); // Tiempo final por caso
-    
+
             System.out.printf("Caso %d procesado en %.3f ms%n", casoNumero, (tiempoFinCaso - tiempoInicioCaso) / 1e6);
             resultados.add(resultado);
             casoNumero++;
         }
-    
+
         // Imprimir todos los resultados
         System.out.println("Resultados:");
         for (int[] resultado : resultados) {
             System.out.println(resultado[0] + " " + resultado[1] + " " + resultado[2]);
         }
-    
+
         long tiempoFinTotal = System.nanoTime(); // Tiempo final en nanosegundos para todo el programa
         System.out.printf("Tiempo total de ejecución: %.3f ms%n", (tiempoFinTotal - tiempoInicioTotal) / 1e6);
     }
@@ -156,7 +155,7 @@ public class ProblemaP2Alt {
         }
 
         // Conectar nodos de entrada y salida para células calculadoras
-        int maxCapacity = 1000000; // Usar un valor finito grande
+        int maxCapacity = 1_000_000; // Usar un valor finito grande
 
         for (Celula celula : celulas) {
             if (celula.tipo == 2) {
@@ -184,7 +183,7 @@ public class ProblemaP2Alt {
 
                 double distancia = Math.hypot(origen.x - destino.x, origen.y - destino.y);
 
-                if (distancia <= d) {
+                if (distancia <= d + 1e-8) { // Añadimos una pequeña tolerancia
                     Set<String> peptidosCompartidos = new HashSet<>(origen.peptidos);
                     peptidosCompartidos.retainAll(destino.peptidos);
                     int capacidad = peptidosCompartidos.size();
@@ -235,8 +234,6 @@ public class ProblemaP2Alt {
         return resultado;
     }
 
-    // Métodos auxiliares (bfs, edmondsKarp, resetGrafo, findBestNodeToBlock)
-
     private boolean bfs(int source, int sink, int[] parent) {
         boolean[] visited = new boolean[this.n];
         Queue<Integer> queue = new LinkedList<>();
@@ -264,14 +261,9 @@ public class ProblemaP2Alt {
         return false;
     }
 
-    public int edmondsKarp(int source, int sink, Map<Integer, Integer> flowThroughCalculatorEdges) {
+    public int edmondsKarp(int source, int sink) {
         int[] parent = new int[this.n];
         int maxFlow = 0;
-
-        // Inicializar el flujo a través de las aristas internas de las células calculadoras
-        for (int nodeInIndex : calculadoras) {
-            flowThroughCalculatorEdges.put(nodeInIndex, 0);
-        }
 
         while (this.bfs(source, sink, parent)) {
             int pathFlow = Integer.MAX_VALUE;
@@ -280,15 +272,8 @@ public class ProblemaP2Alt {
                 pathFlow = Math.min(pathFlow, this.grafo.get(u).get(v));
             }
 
-            // Actualizar los flujos y el flujo a través de las células calculadoras
             for (int v = sink; v != source; v = parent[v]) {
                 int u = parent[v];
-
-                // Si esta arista es una arista interna de una célula calculadora, registrar el flujo
-                if (calculadoras.contains(u) && v == u + 1) {
-                    flowThroughCalculatorEdges.put(u, flowThroughCalculatorEdges.get(u) + pathFlow);
-                }
-
                 // Actualizar el flujo residual
                 this.grafo.get(u).put(v, this.grafo.get(u).get(v) - pathFlow);
                 this.grafo.get(v).put(u, this.grafo.get(v).getOrDefault(u, 0) + pathFlow);
@@ -300,11 +285,6 @@ public class ProblemaP2Alt {
         return maxFlow;
     }
 
-    public int edmondsKarp(int source, int sink) {
-        // Sobrecarga del método para llamadas sin seguimiento de flujo
-        return edmondsKarp(source, sink, new HashMap<>());
-    }
-
     public void resetGrafo() {
         this.grafo = new HashMap<>();
         for (Map.Entry<Integer, Map<Integer, Integer>> entry : originalGrafo.entrySet()) {
@@ -314,41 +294,45 @@ public class ProblemaP2Alt {
 
     public int[] findBestNodeToBlock(int source, int sink) {
         resetGrafo();
-        Map<Integer, Integer> flowThroughCalculatorEdges = new HashMap<>();
-        int originalMaxFlow = this.edmondsKarp(source, sink, flowThroughCalculatorEdges);
+        int originalMaxFlow = edmondsKarp(source, sink);
 
         int maxFlowReduction = 0;
         int bestNodeInIndex = -1;
+        int minimoFlujo = originalMaxFlow;
 
         for (int nodeInIndex : calculadoras) {
-            int flowThroughNode = flowThroughCalculatorEdges.getOrDefault(nodeInIndex, 0);
-            if (flowThroughNode > maxFlowReduction) {
-                maxFlowReduction = flowThroughNode;
+            resetGrafo(); // Restaurar el grafo original antes de cada iteración
+
+            int nodeOutIndex = nodeInIndex + 1; // Nodo de salida de la célula calculadora
+
+            // Bloquear la arista interna de la célula calculadora
+            grafo.get(nodeInIndex).put(nodeOutIndex, 0);
+
+            // Recalcular el flujo máximo con la arista bloqueada
+            int newMaxFlow = edmondsKarp(source, sink);
+
+            int flowReduction = originalMaxFlow - newMaxFlow;
+
+            if (flowReduction > maxFlowReduction) {
+                maxFlowReduction = flowReduction;
                 bestNodeInIndex = nodeInIndex;
-            } else if (flowThroughNode == maxFlowReduction && flowThroughNode > 0) {
+                minimoFlujo = newMaxFlow;
+            } else if (flowReduction == maxFlowReduction && flowReduction > 0) {
                 int currentBestNodeId = nodeIndexToId.get(bestNodeInIndex);
                 int newNodeId = nodeIndexToId.get(nodeInIndex);
                 if (newNodeId > currentBestNodeId) {
                     bestNodeInIndex = nodeInIndex;
+                    minimoFlujo = newMaxFlow;
                 }
             }
         }
 
-        // Manejar el caso en que no se encontró una célula para bloquear
-        if (bestNodeInIndex == -1 || maxFlowReduction == 0) {
-            // Retornar el flujo original sin reducción y un ID indicador, por ejemplo, -1
+        if (bestNodeInIndex == -1) {
             return new int[]{-1, originalMaxFlow, originalMaxFlow};
         }
 
-        // Bloquear la célula seleccionada (eliminar su arista interna)
-        resetGrafo();
-        this.grafo.get(bestNodeInIndex).remove(bestNodeInIndex + 1);
-
-        // Recalcular el flujo máximo sin la célula bloqueada
-        int newMaxFlow = this.edmondsKarp(source, sink);
-
         int bestNodeId = nodeIndexToId.get(bestNodeInIndex);
 
-        return new int[]{bestNodeId, originalMaxFlow, newMaxFlow};
+        return new int[]{bestNodeId, originalMaxFlow, minimoFlujo};
     }
 }
